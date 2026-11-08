@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#070b14" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Arcade Study" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+
+<title>Arcade Study</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #070b14; color: #e6e9f0; font-family: system-ui, -apple-system, sans-serif; }
+  #wrap { position: fixed; inset: 0; overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .top { position: absolute; inset-inline: 0; top: 0; z-index: 10; padding: max(8px, env(safe-area-inset-top)) 12px 0; pointer-events: none; }
+  .top-row { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 900; letter-spacing: 0.04em; }
+  .rankbar { margin-top: 4px; height: 6px; background: #000; overflow: hidden; }
+  .rankbar > div { height: 100%; background: #8b5cf6; transition: width 0.3s; }
+  .qbox { margin-top: 4px; background: rgba(0,0,0,0.7); padding: 4px 8px; font-size: 13px; font-weight: 700; color: #facc15; line-height: 1.3; }
+  .bossbar { margin-top: 4px; }
+  .bossbar label { font-size: 10px; font-weight: 700; color: #ff2d8a; }
+  .bossbar .bar { height: 8px; background: #000; margin-top: 2px; }
+  .bossbar .bar > div { height: 100%; background: linear-gradient(90deg, #db2777, #facc15); }
+  .perks { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: auto; }
+  .perks button {
+    border: 2px solid #000; padding: 4px 8px; font-size: 10px; font-weight: 900;
+    cursor: pointer; min-height: 28px;
+  }
+  .perks button.on { background: #22d3ee; color: #00222a; }
+  .perks button.hint { background: #facc15; color: #000; }
+  .perks button.shield { background: #10b981; color: #000; }
+  .perks button:disabled { background: rgba(0,0,0,0.6); color: #64748b; }
+  .opts {
+    position: absolute; inset-inline: 0; z-index: 10; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+    padding: 0 8px; pointer-events: none;
+  }
+  .opts .o { display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.55); padding: 2px 4px; font-size: 11px; font-weight: 700; }
+  .opts .num { width: 20px; height: 20px; display: grid; place-items: center; background: #facc15; color: #000; font-size: 11px; flex-shrink: 0; }
+  .feedback {
+    position: absolute; inset-inline: 0; z-index: 10; text-align: center; font-size: 14px; font-weight: 900;
+    pointer-events: none;
+  }
+  .feedback.good { color: #10b981; }
+  .feedback.bad { color: #ff2d8a; }
+  .bottom {
+    position: absolute; inset-inline: 0; bottom: 0; z-index: 20;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
+    padding: 0 12px max(10px, env(safe-area-inset-bottom));
+    pointer-events: auto;
+  }
+  .pad {
+    width: 72px; height: 72px; border: 3px solid #000; background: #161c2a; color: #e6e9f0;
+    font-size: 24px; font-weight: 900; box-shadow: 4px 4px 0 #000; display: grid; place-items: center;
+    cursor: pointer; user-select: none;
+  }
+  .pad:active { transform: translate(2px,2px); box-shadow: none; }
+  .fire {
+    flex: 1; min-width: 120px; height: 72px; border: 3px solid #000; background: #22d3ee; color: #00222a;
+    font-size: 18px; font-weight: 900; box-shadow: 4px 4px 0 #000; cursor: pointer;
+  }
+  .fire:active { transform: translate(2px,2px); box-shadow: none; }
+  .blitz-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+  .blitz-grid button {
+    height: 76px; border: 3px solid #000; background: #161c2a; color: #e6e9f0;
+    font-size: 22px; font-weight: 900; box-shadow: 4px 4px 0 #000; cursor: pointer;
+  }
+  .blitz-grid button:active { transform: translateY(2px); box-shadow: none; }
+  .exit {
+    position: absolute; right: 8px; top: max(8px, env(safe-area-inset-top)); z-index: 30;
+    border: 2px solid #000; background: rgba(0,0,0,0.7); padding: 4px 8px; font-size: 10px; font-weight: 900;
+    color: #e6e9f0; cursor: pointer; pointer-events: auto;
+  }
+  .menu {
+    position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    background: rgba(7,11,20,0.92); padding: 16px; overflow-y: auto;
+  }
+  .menu-card {
+    width: 100%; max-width: 420px; border: 3px solid #000; background: #0f1624; padding: 16px;
+    box-shadow: 6px 6px 0 #000;
+  }
+  .menu-card h1 { font-size: 24px; font-weight: 900; letter-spacing: -0.02em; }
+  .menu-card h1 .a { color: #22d3ee; } .menu-card h1 .s { color: #ff2d8a; }
+  .menu-card p { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+  .menu-card .over { color: #facc15; font-weight: 900; font-size: 14px; margin-top: 8px; }
+  .btn-main {
+    display: block; width: 100%; border: 3px solid #000; box-shadow: 4px 4px 0 #000;
+    font-weight: 900; letter-spacing: 0.04em; padding: 12px 10px; text-align: left;
+    margin-top: 8px; cursor: pointer; color: #fff; font-size: 14px;
+  }
+  .btn-main:active { transform: translate(2px,2px); box-shadow: none; }
+  .btn-main span { display: block; font-size: 10px; font-weight: 700; opacity: 0.8; margin-top: 2px; }
+  .btn-orange { background: #f97316; color: #1a0a00; }
+  .btn-pink { background: #ff2d8a; color: #1a0010; }
+  .btn-green { background: #10b981; color: #00140c; }
+  .btn-purple { background: #8b5cf6; color: #fff; }
+  .btn-cyan { background: #22d3ee; color: #00222a; }
+  .btn-dark { background: #161c2a; color: #e6e9f0; }
+  .hidden { display: none !important; }
+  .shake { animation: shake 0.35s ease; }
+  @keyframes shake {
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .rank-list { margin-top: 12px; font-size: 12px; }
+  .rank-list li { display: flex; justify-content: space-between; border: 1px solid #000; background: rgba(0,0,0,0.4); padding: 4px 8px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div class="top" id="hudTop">
+    <div class="top-row">
+      <span style="color:#22d3ee">ARCADE<span style="color:#ff2d8a">STUDY</span></span>
+      <span id="scoreEl" style="color:#facc15">000</span>
+      <span id="streakEl" style="color:#22d3ee">x0</span>
+      <span id="livesEl" style="color:#ff2d8a">●●●</span>
+      <span id="deckEl" style="color:#10b981">0/10</span>
+      <span id="rankEl" style="margin-left:auto;color:#8b5cf6">Rookie</span>
+    </div>
+    <div class="rankbar"><div id="rankBar" style="width:0%"></div></div>
+    <div class="qbox" id="qBox">Drop notes or load the sample deck</div>
+    <div class="bossbar hidden" id="bossBar">
+      <label>CONCEPT BOSS · HP <span id="bossHpTxt">100</span>%</label>
+      <div class="bar"><div id="bossHpBar" style="width:100%"></div></div>
+    </div>
+    <div class="perks" id="perkBar">
+      <button id="btnSlow" disabled>SLOW 0</button>
+      <button id="btnHint" disabled class="hint">HINT 0</button>
+      <button id="btnShield" disabled class="shield">SHIELD 0</button>
+    </div>
+  </div>
+
+  <div class="opts" id="optsBox"></div>
+  <div class="feedback" id="feedbackEl"></div>
+
+  <div class="bottom" id="controls">
+    <div id="classicCtrls" style="display:flex;width:100%;gap:8px;align-items:flex-end">
+      <button class="pad" id="btnLeft">◀</button>
+      <button class="fire" id="btnFire">FIRE</button>
+      <button class="pad" id="btnRight">▶</button>
+    </div>
+    <div id="blitzCtrls" class="blitz-grid hidden">
+      <button data-slot="0">1</button>
+      <button data-slot="1">2</button>
+      <button data-slot="2">3</button>
+      <button data-slot="3">4</button>
+    </div>
+  </div>
+
+  <button class="exit hidden" id="btnExit">EXIT</button>
+
+  <div class="menu" id="menu">
+    <div class="menu-card">
+      <h1><span class="a">ARCADE</span><span class="s">STUDY</span></h1>
+      <p>Full-screen quiz shooter. Works sideways and upright. Best on a phone turned sideways.</p>
+      <p id="deckNote" style="color:#10b981">Sample deck · 10 questions</p>
+      <p class="over hidden" id="overMsg"></p>
+      <p id="bestLine">Best 000 · Rookie</p>
+
+      <div id="menuBtns">
+        <button class="btn-main btn-orange" id="btnClassic">PLAY CLASSIC<span>Move + FIRE the right number</span></button>
+        <button class="btn-main btn-pink" id="btnBlitz">PLAY BLITZ<span>Tap 1–4 to shoot that answer</span></button>
+        <button class="btn-main btn-green" id="btnNotes">LOAD MY NOTES<span>Paste text or pick a .txt file</span></button>
+        <button class="btn-main btn-purple" id="btnRanks">RANKS</button>
+      </div>
+
+      <div id="notesPanel" class="hidden">
+        <p style="margin-top:10px;font-size:11px;color:#94a3b8">Paste notes with sentences like “Mars is the Red Planet.” Everything stays on this device.</p>
+        <textarea id="notesInput" rows="5" style="width:100%;margin-top:8px;background:#000;border:2px solid #333;color:#e6e9f0;padding:8px;font-size:13px" placeholder="Paste study notes here…"></textarea>
+        <button class="btn-main btn-cyan" id="btnBuildNotes">BUILD DECK FROM TEXT</button>
+        <label class="btn-main btn-cyan" style="display:block;text-align:center;margin-top:8px">
+          CHOOSE FILE
+          <input type="file" accept=".txt,.md,.csv,text/plain" id="fileInput" style="display:none" />
+        </label>
+        <button class="btn-main btn-dark" id="btnSample">USE SAMPLE DECK</button>
+        <button class="btn-main btn-dark" id="btnNotesBack" style="margin-top:8px">BACK</button>
+      </div>
+
+      <div id="ranksPanel" class="hidden">
+        <div style="margin-top:10px;font-weight:900;color:#facc15" id="rankTitle">Rookie · best 0</div>
+        <div class="rankbar" style="margin-top:6px"><div id="rankBarMenu" style="width:0%"></div></div>
+        <p style="font-size:10px;color:#64748b;margin-top:4px">Rookie → Cadet 80 → Specialist 180 → Ace 320 → Elite 500 → Master 750 → Grandmaster 1100</p>
+        <ol class="rank-list" id="boardList"></ol>
+        <button class="btn-main btn-dark" id="btnRanksBack" style="margin-top:12px">BACK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SAMPLE = [
+  { q: "What is the powerhouse of the cell?", correct: "Mitochondria", options: ["Mitochondria", "Nucleus", "Ribosome", "Golgi body"], source: "Mitochondria is the powerhouse of the cell — it produces ATP through cellular respiration." },
+  { q: "What is the capital of Japan?", correct: "Tokyo", options: ["Tokyo", "Kyoto", "Osaka", "Seoul"], source: "The capital of Japan is Tokyo, one of the world's largest metropolitan areas." },
+  { q: "Who wrote Romeo and Juliet?", correct: "Shakespeare", options: ["Shakespeare", "Dickens", "Austen", "Hemingway"], source: "Romeo and Juliet was written by William Shakespeare in the late 16th century." },
+  { q: "In which year did WWII end?", correct: "1945", options: ["1945", "1939", "1918", "1963"], source: "World War II ended in 1945 after the surrender of Axis powers." },
+  { q: "What is the chemical symbol for gold?", correct: "Au", options: ["Au", "Ag", "Fe", "Gd"], source: "Gold has the chemical symbol Au, from the Latin word aurum." },
+  { q: "Which planet is known as the Red Planet?", correct: "Mars", options: ["Mars", "Venus", "Jupiter", "Mercury"], source: "Mars is known as the Red Planet due to iron oxide on its surface." },
+  { q: "What is H2O commonly known as?", correct: "Water", options: ["Water", "Hydrogen", "Oxygen", "Acid"], source: "H2O is the chemical formula for water — two hydrogen atoms and one oxygen." },
+  { q: "What gas do plants absorb for photosynthesis?", correct: "Carbon dioxide", options: ["Carbon dioxide", "Oxygen", "Nitrogen", "Helium"], source: "Plants absorb carbon dioxide during photosynthesis to produce glucose and oxygen." },
+  { q: "What is the largest organ in the human body?", correct: "Skin", options: ["Skin", "Liver", "Heart", "Brain"], source: "The skin is the largest organ of the human body and acts as a protective barrier." },
+  { q: "Who proposed the theory of relativity?", correct: "Einstein", options: ["Einstein", "Newton", "Galileo", "Bohr"], source: "Albert Einstein proposed the theory of relativity, changing our understanding of space and time." },
+];
+
+const RANKS = [
+  { name: "Rookie", min: 0 },
+  { name: "Cadet", min: 80 },
+  { name: "Specialist", min: 180 },
+  { name: "Ace", min: 320 },
+  { name: "Elite", min: 500 },
+  { name: "Master", min: 750 },
+  { name: "Grandmaster", min: 1100 },
+];
+
+function rankFor(score) {
+  let current = RANKS[0], next = RANKS[1];
+  for (let i = 0; i < RANKS.length; i++) {
+    if (score >= RANKS[i].min) {
+      current = RANKS[i];
+      next = RANKS[i + 1] || null;
+    }
+  }
+  const floor = current.min;
+  const ceil = next ? next.min : floor + 250;
+  const pct = Math.max(0, Math.min(1, (score - floor) / (ceil - floor)));
+  return { name: current.name, next: next ? next.name : "MAX", pct, ceil };
+}
+
+function shuffle(a) {
+  const x = a.slice();
+  for (let i = x.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [x[i], x[j]] = [x[j], x[i]];
+  }
+  return x;
+}
+
+function shorten(s, n) {
+  s = String(s || "").replace(/\s+/g, " ").trim();
+  if (s.length <= n) return s;
+  const c = s.slice(0, n - 1);
+  const p = c.lastIndexOf(" ");
+  return (p > n * 0.4 ? c.slice(0, p) : c) + "…";
+}
+
+function buildFromText(raw) {
+  const clean = raw.replace(/\r/g, "\n").replace(/\s+/g, " ");
+  const sentences = clean.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 18 && s.length < 280);
+  const pairs = [];
+  const seen = new Set();
+  const add = (q, a, src) => {
+    q = q.trim();
+    a = String(a).replace(/\s+/g, " ").trim();
+    if (!q || !a || a.length > 32 || a.length < 1) return;
+    a = shorten(a, 24);
+    const k = (q + "|" + a).toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    pairs.push({ q: shorten(q, 90), correct: a, source: src || q });
+  };
+  for (const s of sentences) {
+    let m;
+    if ((m = s.match(/^([A-Z][A-Za-z0-9][A-Za-z0-9\s\-/]{1,40})\s+(?:is|are|was|were)\s+(?:a|an|the)?\s*(.+?)(?:\.|$)/i))) {
+      if (m[1].split(/\s+/).length <= 6) add("What is " + m[1].trim() + "?", m[2].split(/,|;/)[0], s);
+    } else if ((m = s.match(/\b([A-Z][A-Za-z0-9][A-Za-z0-9\s\-]{1,35}?)\s+(?:is known as|is called|refers to)\s+(.+?)(?:\.|$)/i))) {
+      add("What is " + m[1].trim() + " known as?", m[2].split(/,/)[0], s);
+    } else if ((m = s.match(/capital of\s+(.+?)\s+(?:is|was)\s+([A-Za-z][A-Za-z\s\-]{1,28})/i))) {
+      add("What is the capital of " + m[1].trim() + "?", m[2], s);
+    } else if ((m = s.match(/\b(.+?)\s+(?:in|during|ended in|began in|started in)\s+(\d{3,4})\b/i))) {
+      add("In which year: " + shorten(m[1].trim(), 50) + "?", m[2], s);
+    } else if ((m = s.match(/\b(.+?)\s+(?:was )?written by\s+([A-Z][A-Za-z.\s]{2,35})/i))) {
+      add("Who wrote " + m[1].trim() + "?", m[2].trim(), s);
+    } else if ((m = s.match(/^([A-Z][A-Za-z0-9][A-Za-z0-9\s\-/]{1,35})\s*:\s*(.+)$/))) {
+      add("What is " + m[1].trim() + "?", m[2].split(/[.;]/)[0], s);
+    }
+  }
+  const pool = [...new Set(pairs.map(p => p.correct))];
+  const fillers = ["Oxygen", "Newton", "Paris", "1947", "Mars", "Nucleus", "Venus", "Carbon", "Liver", "Gravity"];
+  const out = [];
+  for (const p of pairs.slice(0, 14)) {
+    const wrongs = shuffle(pool.filter(x => x.toLowerCase() !== p.correct.toLowerCase())).slice(0, 3);
+    let i = 0;
+    while (wrongs.length < 3) {
+      const f = fillers[i++ % fillers.length];
+      if (!wrongs.includes(f) && f.toLowerCase() !== p.correct.toLowerCase()) wrongs.push(f);
+    }
+    out.push({ q: p.q, correct: p.correct, options: shuffle([p.correct, ...wrongs]).slice(0, 4), source: p.source });
+  }
+  return out;
+}
+
+function loadBoard() {
+  try { return JSON.parse(localStorage.getItem("as_board") || "[]"); } catch { return []; }
+}
+function pushScore(score, mode) {
+  const high = Math.max(score, Number(localStorage.getItem("as_high") || 0));
+  localStorage.setItem("as_high", String(high));
+  const board = loadBoard();
+  board.push({ score, rank: rankFor(score).name, mode, at: Date.now() });
+  board.sort((a, b) => b.score - a.score);
+  localStorage.setItem("as_board", JSON.stringify(board.slice(0, 5)));
+  return high;
+}
+
+// —— Game ——
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const wrap = document.getElementById("wrap");
+const COLS = ["#ff2d8a", "#8b5cf6", "#22d3ee", "#f97316"];
+
+let deck = SAMPLE.map(c => ({ ...c, options: c.options.slice() }));
+let mode = "classic";
+let running = false;
+let W = 900, H = 520, dpr = 1;
+let score = 0, lives = 3, streak = 0, qIndex = 0;
+let bossPhase = false, bossHp = 100, review = false, locked = false;
+let shootCd = 0, wrongLog = [], meteors = [], lasers = [], parts = [];
+let shipX = 450, last = performance.now(), overMsg = "";
+let perkSlow = 0, perkHint = 0, perkShield = 0, shieldActive = false;
+let slowTimer = 0, hintTimer = 0, correctCount = 0;
+let keys = {};
+let high = Number(localStorage.getItem("as_high") || 0);
+
+function landNow() { return wrap.clientWidth >= wrap.clientHeight; }
+function topInset() { return landNow() ? 90 : 130; }
+function botInset() { return landNow() ? 108 : 168; }
+
+function fit() {
+  const r = wrap.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(320, r.width);
+  H = Math.max(320, r.height);
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  shipX = Math.max(40, Math.min(W - 40, shipX));
+  // layout opts
+  const optsBox = document.getElementById("optsBox");
+  optsBox.style.top = (landNow() ? 100 : 150) + "px";
+  document.getElementById("feedbackEl").style.top = (landNow() ? 150 : 210) + "px";
+  document.getElementById("controls").style.height = botInset() + "px";
+}
+
+function flash(msg, good, source) {
+  const el = document.getElementById("feedbackEl");
+  el.textContent = msg;
+  el.className = "feedback " + (good ? "good" : "bad");
+  if (source) document.getElementById("bestLine").textContent =
+    `Best ${String(high).padStart(3,"0")} · ${rankFor(high).name} · last miss: ${source}`;
+}
+
+function syncHud() {
+  const rk = rankFor(Math.max(score, high));
+  document.getElementById("scoreEl").textContent = String(score).padStart(3, "0");
+  document.getElementById("streakEl").textContent = "x" + streak;
+  document.getElementById("livesEl").textContent = "●".repeat(Math.max(0, lives)) + "○".repeat(Math.max(0, 3 - lives));
+  document.getElementById("deckEl").textContent = bossPhase ? "BOSS" : review ? "REVIEW" : `${qIndex}/${deck.length}`;
+  document.getElementById("rankEl").textContent = rk.name;
+  document.getElementById("rankBar").style.width = Math.round(rk.pct * 100) + "%";
+
+  const item = meteors.find(m => !m.dead)?.item;
+  if (item) {
+    document.getElementById("qBox").textContent = (bossPhase ? "BOSS · " : review ? "REVIEW · " : "") + item.q;
+    const optsBox = document.getElementById("optsBox");
+    optsBox.innerHTML = "";
+    item.options.slice(0, 4).forEach((o, i) => {
+      const d = document.createElement("div");
+      d.className = "o";
+      d.innerHTML = `<span class="num">${i + 1}</span><span>${o}</span>`;
+      optsBox.appendChild(d);
+    });
+  }
+
+  const bb = document.getElementById("bossBar");
+  if (bossPhase) {
+    bb.classList.remove("hidden");
+    document.getElementById("bossHpTxt").textContent = Math.round(bossHp);
+    document.getElementById("bossHpBar").style.width = bossHp + "%";
+  } else bb.classList.add("hidden");
+
+  // perks
+  const bs = document.getElementById("btnSlow");
+  bs.textContent = "SLOW " + perkSlow + (slowTimer > 0 ? " ·ON" : "");
+  bs.disabled = perkSlow <= 0 || slowTimer > 0;
+  bs.className = perkSlow > 0 && slowTimer <= 0 ? "on" : "";
+
+  const bh = document.getElementById("btnHint");
+  bh.textContent = "HINT " + perkHint;
+  bh.disabled = perkHint <= 0;
+  bh.className = perkHint > 0 ? "hint" : "";
+
+  const bsh = document.getElementById("btnShield");
+  bsh.textContent = "SHIELD " + perkShield + (shieldActive ? " ·ON" : "");
+  bsh.disabled = perkShield <= 0 || shieldActive;
+  bsh.className = (perkShield > 0 || shieldActive) ? "shield" : "";
+}
+
+function spawnWave() {
+  meteors = [];
+  lasers = [];
+  locked = false;
+  if (!bossPhase && !review && qIndex >= deck.length) {
+    if (wrongLog.length) { startBoss(); return; }
+    endRun(true); return;
+  }
+  if (review && wrongLog.length === 0) { endRun(true); return; }
+  const item = bossPhase || review
+    ? wrongLog[Math.floor(Math.random() * wrongLog.length)]
+    : deck[qIndex];
+  if (!item) { endRun(true); return; }
+
+  const n = item.options.length;
+  const margin = Math.max(48, W * 0.08);
+  const usable = W - margin * 2;
+  // Slower fall
+  const speed = (H * 0.085 + 22) * (mode === "blitz" ? 1.25 : 1) * (bossPhase ? 1.2 : 1);
+  item.options.forEach((opt, i) => {
+    const x = n === 1 ? W / 2 : margin + (usable / (n - 1)) * i;
+    meteors.push({
+      x: x + (Math.random() * 16 - 8),
+      y: topInset() - 30 - Math.random() * 40,
+      vy: speed * (0.88 + Math.random() * 0.2),
+      text: opt,
+      letter: String(i + 1),
+      isCorrect: opt === item.correct,
+      r: landNow() ? 28 : 34,
+      dead: false,
+      rot: Math.random() * Math.PI,
+      item,
+    });
+  });
+  syncHud();
+}
+
+function startBoss() {
+  bossPhase = true;
+  bossHp = 100;
+  flash("CONCEPT BOSS — retest the ones you missed", false);
+  spawnWave();
+}
+
+function endRun(won) {
+  running = false;
+  overMsg = won ? `RUN CLEAR · ${score}` : `OUT OF LIVES · ${score}`;
+  const prevRank = rankFor(Number(localStorage.getItem("as_high") || 0)).name;
+  high = pushScore(score, mode);
+  const now = rankFor(high).name;
+  if (now !== prevRank && score > 0) overMsg = `RANK UP · ${now} · ${score}`;
+  flash(overMsg, won);
+  document.getElementById("overMsg").textContent = overMsg;
+  document.getElementById("overMsg").classList.remove("hidden");
+  document.getElementById("bestLine").textContent = `Best ${String(high).padStart(3,"0")} · ${rankFor(high).name}`;
+  document.getElementById("menu").classList.remove("hidden");
+  document.getElementById("btnExit").classList.add("hidden");
+  document.getElementById("menuBtns").classList.remove("hidden");
+  document.getElementById("notesPanel").classList.add("hidden");
+  document.getElementById("ranksPanel").classList.add("hidden");
+}
+
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    parts.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 280,
+      vy: (Math.random() - 0.5) * 280,
+      life: 0.45 + Math.random() * 0.25,
+      color,
+    });
+  }
+}
+
+function hitMeteor(m) {
+  if (m.dead || locked) return;
+  m.dead = true;
+  const item = m.item;
+  if (m.isCorrect) {
+    const pts = 10 + Math.min(streak, 6) * 3;
+    score += pts;
+    streak++;
+    correctCount++;
+    if (correctCount % 3 === 0) perkSlow = Math.min(3, perkSlow + 1);
+    if (correctCount % 4 === 0) perkHint = Math.min(3, perkHint + 1);
+    if (correctCount % 5 === 0) perkShield = Math.min(2, perkShield + 1);
+    if (streak === 5) {
+      perkSlow = Math.min(3, perkSlow + 1);
+      flash(`HIT +${pts}  STREAK x${streak} · PERK +1`, true);
+    } else {
+      flash(`HIT +${pts}${streak > 2 ? "  STREAK x" + streak : ""}`, true);
+    }
+    burst(m.x, m.y, "#22d3ee", 18);
+    if (bossPhase || review) {
+      bossHp = Math.max(0, bossHp - 34);
+      wrongLog = wrongLog.filter(w => w.q !== item.q);
+      if (bossHp <= 0 || wrongLog.length === 0) {
+        bossPhase = false; review = false;
+        flash("CONCEPT BOSS DOWN", true);
+        syncHud();
+        setTimeout(() => running && endRun(true), 600);
+        return;
+      }
+      locked = true;
+      setTimeout(() => running && spawnWave(), 420);
+    } else {
+      locked = true;
+      qIndex++;
+      setTimeout(() => running && spawnWave(), 380);
+    }
+  } else {
+    streak = 0;
+    burst(m.x, m.y, "#ff2d8a", 14);
+    wrap.classList.remove("shake");
+    void wrap.offsetWidth;
+    wrap.classList.add("shake");
+    if (!bossPhase && !review && !wrongLog.some(w => w.q === item.q)) wrongLog.push(item);
+    if (shieldActive) {
+      shieldActive = false;
+      flash("SHIELD BLOCKED THE MISS", true, item.source || "");
+    } else {
+      flash("WRONG", false, item.source || "");
+      if (bossPhase || review) {
+        bossHp = Math.min(100, bossHp + 14);
+        locked = true;
+        setTimeout(() => running && spawnWave(), 420);
+      } else {
+        lives--;
+        if (lives <= 0) { syncHud(); endRun(false); return; }
+        const still = meteors.some(x => x.isCorrect && !x.dead);
+        if (!still) {
+          locked = true;
+          qIndex++;
+          setTimeout(() => running && spawnWave(), 380);
+        }
+      }
+    }
+  }
+  syncHud();
+}
+
+function fireClassic() {
+  if (!running || shootCd > 0 || locked) return;
+  lasers.push({ x: shipX, y: H - botInset() - 18, vy: -H * 1.35, home: null });
+  shootCd = 0.16;
+}
+function fireBlitz(slot) {
+  if (!running || locked) return;
+  const margin = 36;
+  const tx = margin + ((W - margin * 2) / 3) * slot;
+  const byLetter = meteors.find(m => !m.dead && m.letter === String(slot + 1)) || null;
+  lasers.push({ x: tx, y: H - botInset(), vy: -H * 1.6, home: byLetter });
+}
+
+function usePerk(kind) {
+  if (!running) return;
+  if (kind === "slow" && perkSlow > 0 && slowTimer <= 0) {
+    perkSlow--;
+    slowTimer = 4.5;
+    flash("SLOW-MO ACTIVE", true);
+    syncHud();
+  } else if (kind === "hint" && perkHint > 0) {
+    perkHint--;
+    hintTimer = 2.8;
+    const correct = meteors.find(m => !m.dead && m.isCorrect);
+    flash(correct ? `HINT · correct is ${correct.letter}` : "HINT · no targets", !!correct);
+    syncHud();
+  } else if (kind === "shield" && perkShield > 0 && !shieldActive) {
+    perkShield--;
+    shieldActive = true;
+    flash("SHIELD READY", true);
+    syncHud();
+  }
+}
+
+function start(m) {
+  mode = m;
+  score = 0; lives = 3; streak = 0; qIndex = 0;
+  bossPhase = false; bossHp = 100; review = false; locked = false;
+  wrongLog = []; meteors = []; lasers = []; parts = [];
+  overMsg = "";
+  perkSlow = 0; perkHint = 0; perkShield = 0; shieldActive = false;
+  slowTimer = 0; hintTimer = 0; correctCount = 0;
+  running = true;
+  shipX = W / 2;
+  document.getElementById("menu").classList.add("hidden");
+  document.getElementById("btnExit").classList.remove("hidden");
+  document.getElementById("overMsg").classList.add("hidden");
+  document.getElementById("classicCtrls").classList.toggle("hidden", m !== "classic");
+  document.getElementById("blitzCtrls").classList.toggle("hidden", m !== "blitz");
+  flash("", true);
+  spawnWave();
+}
+
+function step(dt) {
+  if (!running) return;
+  const left = keys.ArrowLeft || keys.a || keys.Left;
+  const right = keys.ArrowRight || keys.d || keys.Right;
+  if (mode === "classic") {
+    if (left) shipX -= 460 * dt;
+    if (right) shipX += 460 * dt;
+    shipX = Math.max(36, Math.min(W - 36, shipX));
+  }
+  if (shootCd > 0) shootCd -= dt;
+  if (slowTimer > 0) {
+    slowTimer -= dt;
+    if (slowTimer <= 0) { slowTimer = 0; flash("SLOW-MO ENDED", false); }
+  }
+  if (hintTimer > 0) hintTimer -= dt;
+  const fallMul = slowTimer > 0 ? 0.32 : 1;
+
+  for (const l of lasers) {
+    if (l.home && !l.home.dead) {
+      const dx = l.home.x - l.x, dy = l.home.y - l.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const sp = H * 1.8;
+      l.x += (dx / dist) * sp * dt;
+      l.y += (dy / dist) * sp * dt;
+    } else l.y += l.vy * dt;
+  }
+  lasers = lasers.filter(l => l.y > -40 && l.y < H + 40);
+
+  for (const m of meteors) {
+    if (!m.dead) {
+      m.y += m.vy * dt * fallMul;
+      m.rot += dt * 1.4 * fallMul;
+    }
+  }
+
+  if (!locked) {
+    for (const l of lasers) {
+      for (const m of meteors) {
+        if (m.dead) continue;
+        if (Math.hypot(l.x - m.x, l.y - m.y) < m.r + 6) {
+          l.y = -999;
+          hitMeteor(m);
+          break;
+        }
+      }
+    }
+    const floor = H - botInset() + 8;
+    for (const m of meteors) {
+      if (!m.dead && m.y - m.r > floor) {
+        m.dead = true;
+        if (m.isCorrect && !bossPhase && !review) {
+          streak = 0;
+          if (shieldActive) {
+            shieldActive = false;
+            flash("SHIELD SAVED THE MISS", true, m.item.source);
+          } else {
+            lives--;
+            flash("MISSED THE RIGHT ANSWER", false, m.item.source);
+            if (!wrongLog.some(w => w.q === m.item.q)) wrongLog.push(m.item);
+            if (lives <= 0) { syncHud(); endRun(false); return; }
+          }
+          locked = true;
+          qIndex++;
+          setTimeout(() => running && spawnWave(), 360);
+        } else if (m.isCorrect && (bossPhase || review)) {
+          bossHp = Math.min(100, bossHp + 10);
+          locked = true;
+          setTimeout(() => running && spawnWave(), 360);
+        }
+        syncHud();
+      }
+    }
+  }
+
+  for (const p of parts) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+  }
+  parts = parts.filter(p => p.life > 0);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#05070e";
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(139,92,246,0.10)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 36) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 36) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  if (mode === "blitz" && running) {
+    for (let i = 0; i < 4; i++) {
+      const margin = 36;
+      const tx = margin + ((W - margin * 2) / 3) * i;
+      const y = H - botInset();
+      ctx.strokeStyle = "#22d3ee";
+      ctx.fillStyle = "rgba(34,211,238,0.15)";
+      ctx.beginPath();
+      ctx.moveTo(tx - 14, y + 16);
+      ctx.lineTo(tx, y - 6);
+      ctx.lineTo(tx + 14, y + 16);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+  }
+
+  if (bossPhase) {
+    ctx.save();
+    ctx.translate(W / 2, topInset() + 8);
+    ctx.strokeStyle = "#ff2d8a";
+    ctx.fillStyle = "rgba(255,45,138,0.15)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -16); ctx.lineTo(36, 8); ctx.lineTo(18, 20); ctx.lineTo(-18, 20); ctx.lineTo(-36, 8);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  for (const m of meteors) {
+    if (m.dead) continue;
+    const col = COLS[(parseInt(m.letter, 10) - 1) % 4];
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.rot * 0.35);
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col + "33";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const rad = i % 2 === 0 ? m.r : m.r * 0.62;
+      const ang = (Math.PI * 2 * i) / 12;
+      const px = Math.cos(ang) * rad, py = Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 11px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(m.letter, m.x, m.y - 6);
+    ctx.font = "bold 10px system-ui";
+    const tw = ctx.measureText(m.text).width;
+    if (tw > m.r * 1.6) {
+      ctx.fillText(m.text.slice(0, 8) + "…", m.x, m.y + 8);
+    } else ctx.fillText(m.text, m.x, m.y + 8);
+  }
+
+  for (const l of lasers) {
+    ctx.strokeStyle = "#22d3ee";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(l.x, l.y);
+    ctx.lineTo(l.x, l.y + 16);
+    ctx.stroke();
+  }
+
+  for (const p of parts) {
+    ctx.globalAlpha = Math.max(0, p.life * 2);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    ctx.globalAlpha = 1;
+  }
+
+  // ship
+  if (running && mode === "classic") {
+    const sy = H - botInset() - 8;
+    ctx.fillStyle = "#22d3ee";
+    ctx.beginPath();
+    ctx.moveTo(shipX, sy - 18);
+    ctx.lineTo(shipX - 16, sy + 10);
+    ctx.lineTo(shipX + 16, sy + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  step(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// UI wiring
+document.getElementById("btnClassic").onclick = () => start("classic");
+document.getElementById("btnBlitz").onclick = () => start("blitz");
+document.getElementById("btnExit").onclick = () => {
+  running = false;
+  document.getElementById("menu").classList.remove("hidden");
+  document.getElementById("btnExit").classList.add("hidden");
+};
+document.getElementById("btnSlow").onclick = () => usePerk("slow");
+document.getElementById("btnHint").onclick = () => usePerk("hint");
+document.getElementById("btnShield").onclick = () => usePerk("shield");
+
+document.getElementById("btnLeft").onpointerdown = e => { e.preventDefault(); keys.ArrowLeft = true; };
+document.getElementById("btnLeft").onpointerup = () => keys.ArrowLeft = false;
+document.getElementById("btnLeft").onpointerleave = () => keys.ArrowLeft = false;
+document.getElementById("btnRight").onpointerdown = e => { e.preventDefault(); keys.ArrowRight = true; };
+document.getElementById("btnRight").onpointerup = () => keys.ArrowRight = false;
+document.getElementById("btnRight").onpointerleave = () => keys.ArrowRight = false;
+document.getElementById("btnFire").onpointerdown = e => { e.preventDefault(); fireClassic(); };
+
+document.querySelectorAll("#blitzCtrls button").forEach(b => {
+  b.onpointerdown = e => { e.preventDefault(); fireBlitz(+b.dataset.slot); };
+});
+
+window.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); fireClassic(); }
+  if (e.key >= "1" && e.key <= "4") fireBlitz(+e.key - 1);
+});
+window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+document.getElementById("btnNotes").onclick = () => {
+  document.getElementById("menuBtns").classList.add("hidden");
+  document.getElementById("notesPanel").classList.remove("hidden");
+  document.getElementById("ranksPanel").classList.add("hidden");
+};
+document.getElementById("btnNotesBack").onclick = () => {
+  document.getElementById("menuBtns").classList.remove("hidden");
+  document.getElementById("notesPanel").classList.add("hidden");
+};
+document.getElementById("btnSample").onclick = () => {
+  deck = SAMPLE.map(c => ({ ...c, options: c.options.slice() }));
+  document.getElementById("deckNote").textContent = "Sample deck · 10 questions";
+  document.getElementById("menuBtns").classList.remove("hidden");
+  document.getElementById("notesPanel").classList.add("hidden");
+};
+document.getElementById("btnBuildNotes").onclick = () => {
+  const t = document.getElementById("notesInput").value;
+  const built = buildFromText(t);
+  if (!built.length) {
+    alert("Couldn’t find facts. Use lines like “Tokyo is the capital of Japan.”");
+    return;
+  }
+  deck = built;
+  document.getElementById("deckNote").textContent = `Custom · ${built.length} questions · stays on this device`;
+  document.getElementById("menuBtns").classList.remove("hidden");
+  document.getElementById("notesPanel").classList.add("hidden");
+};
+document.getElementById("fileInput").onchange = async e => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const text = await f.text();
+  const built = buildFromText(text);
+  if (!built.length) {
+    alert("Couldn’t find facts. Use lines like “Tokyo is the capital of Japan.”");
+    return;
+  }
+  deck = built;
+  document.getElementById("deckNote").textContent = `${f.name} · ${built.length} questions · stays on this device`;
+  document.getElementById("menuBtns").classList.remove("hidden");
+  document.getElementById("notesPanel").classList.add("hidden");
+};
+
+document.getElementById("btnRanks").onclick = () => {
+  document.getElementById("menuBtns").classList.add("hidden");
+  document.getElementById("ranksPanel").classList.remove("hidden");
+  document.getElementById("notesPanel").classList.add("hidden");
+  const rk = rankFor(high);
+  document.getElementById("rankTitle").textContent = `${rk.name} · best ${high}`;
+  document.getElementById("rankBarMenu").style.width = Math.round(rk.pct * 100) + "%";
+  const list = document.getElementById("boardList");
+  list.innerHTML = "";
+  const board = loadBoard();
+  if (!board.length) list.innerHTML = "<li style='color:#64748b'>No runs yet.</li>";
+  board.forEach((b, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${i + 1}. ${b.rank} · ${b.mode}</span><span style="color:#facc15">${b.score}</span>`;
+    list.appendChild(li);
+  });
+};
+document.getElementById("btnRanksBack").onclick = () => {
+  document.getElementById("menuBtns").classList.remove("hidden");
+  document.getElementById("ranksPanel").classList.add("hidden");
+};
+
+window.addEventListener("resize", fit);
+window.addEventListener("orientationchange", fit);
+fit();
+document.getElementById("bestLine").textContent = `Best ${String(high).padStart(3,"0")} · ${rankFor(high).name}`;
+requestAnimationFrame(loop);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(console.warn);
+  });
+}
+</script>
+</body>
+</html>
